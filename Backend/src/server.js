@@ -7,14 +7,14 @@ import mongoose from "mongoose";
 import User from "./models/User.js";
 import Slot from "./models/Slot.js";
 import MatrixPosition from "./models/MatrixPosition.js";
-import UserSlot from "./models/UserSlot.js";
-import Earning from "./models/Earning.js";
+
 
 // Import routes
 import userRoutes from "./routes/userRoutes.js";
 import slotRoutes from "./routes/slotRoutes.js";
 import treeRoutes from "./routes/treeRoutes.js";
 import dashboardRoutes from "./routes/dashboardRoutes.js";
+import matrixRoutes from "./routes/matrixRoutes.js";
 
 const app = express();
 
@@ -38,7 +38,8 @@ await connectDB();
 app.use("/api/users", userRoutes);
 app.use("/api/slots", slotRoutes);
 app.use("/api/tree", treeRoutes);
-app.use("/api/dasboard", dashboardRoutes)
+app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/matrix", matrixRoutes);
 
 // Debug endpoints
 app.get("/api/debug/users", async (req, res) => {

@@ -5,6 +5,6 @@ import { getTree } from "../controllers/treeController.js";
 const router = Router();
 
 // /api/tree/:slotNumber/:userId
-router.get("/:slotNumber/:userId", getTree);
+router.get("/:slotNumber/:userId/:cycleIndex", getTree);
 
 export default router;

@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { useAccount, useDisconnect } from "wagmi";
+import {  useDisconnect } from "wagmi";
 import { useNavigate } from "react-router-dom";
 
 interface HeaderProps {
@@ -62,8 +62,8 @@ const Header: React.FC<HeaderProps> = ({ userStats, walletAddress }) => {
               </div>
             </div>
             <div className="px-3 py-1 sm:px-4 sm:py-2 bg-gray-700/60 border border-orange-500/30 rounded-xl backdrop-blur-sm">
-              <div className="text-xs text-orange-300/70">User ID</div>
-              <div className="text-sm font-bold text-orange-200">#{userStats.id}</div>
+              <span className="text-xs text-orange-300/70">User ID</span>
+              <span className="text-sm font-bold text-orange-200"> {userStats.id}</span>
             </div>
           </motion.div>
 

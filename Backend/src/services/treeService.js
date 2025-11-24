@@ -4,12 +4,13 @@ import Slot from "../models/Slot.js";
 import MatrixPosition from "../models/MatrixPosition.js";
 
 /* ------------ helper: get earliest matrix position for user+slot ---------- */
-async function getMainPositionForUserSlot(user, slot) {
+async function getMainPositionForUserSlot(user, slot,cycleIndex) {
     const pos = await MatrixPosition.findOne({
         user: user._id,
         slot: slot._id,
+        cycleIndex
     }).sort({ createdAt: 1 });
-
+    console.log(pos)
     return pos; // can be null if user not placed yet in that slot
 }
 
@@ -122,36 +123,102 @@ async function buildTreeNode({ position, viewerUser, viewerRootPos, viewerRootAn
 }
 
 /* -------------------------- public: get user tree -------------------------- */
-export async function getUserTreeForSlot(userId, slotNumber) {
-    // Viewer == tree owner (for coloring)
+
+export async function getUserTreeForSlot(userId, slotNumber, cycleIndex = 1) {
     const viewerUser = await User.findOne({ userId });
-    if (!viewerUser) {
-        throw new Error("Viewer user not found");
-    }
+    if (!viewerUser) throw new Error("Viewer user not found");
 
     const slot = await Slot.findOne({ slotNumber });
-    if (!slot) {
-        throw new Error("Slot not found");
+    if (!slot) throw new Error("Slot not found");
+
+    /* ------------------------------------------------------------  
+       1️⃣ GET REAL SLOT ROOT (full matrix top)
+    ------------------------------------------------------------ */
+    const realRoot = await MatrixPosition.findOne({
+        slot: slot._id,
+        parentPosition: null
+    }).sort({ createdAt: 1 });
+
+    if (!realRoot) {
+        return { slotNumber, userId, root: null, realParent: null };
     }
 
-    const viewerRootPos = await getMainPositionForUserSlot(viewerUser, slot);
-    if (!viewerRootPos) {
-        throw new Error("User has no position in this slot yet");
+    /* ------------------------------------------------------------  
+       2️⃣ Get ALL positions of viewer inside this slot
+    ------------------------------------------------------------ */
+    const allUserPositions = await MatrixPosition.find({
+        user: viewerUser._id,
+        slot: slot._id
+    }).sort({ cycleIndex: 1 });
+
+    // Viewer never placed in this slot
+    if (allUserPositions.length === 0) {
+        const fullTree = await buildTreeNode({
+            position: realRoot,
+            viewerUser,
+            viewerRootPos: realRoot,
+            viewerRootAncestors: [],
+            slot
+        });
+
+        return {
+            slotNumber,
+            userId,
+            root: fullTree,
+            realParent: null
+        };
     }
 
-    const viewerRootAncestors = await getAncestorChain(viewerRootPos);
+    /* ------------------------------------------------------------  
+       3️⃣ Pick the correct cycle position
+    ------------------------------------------------------------ */
+    let viewerPos = allUserPositions.find(p => p.cycleIndex === Number(cycleIndex));
 
-    const tree = await buildTreeNode({
-        position: viewerRootPos,
+    if (!viewerPos) {
+        viewerPos = allUserPositions[0];
+    }
+
+    /* ------------------------------------------------------------  
+       4️⃣ Build subtree only from viewerPos (cycle tree)
+    ------------------------------------------------------------ */
+    const viewerAncestors = await getAncestorChain(viewerPos);
+
+    const cycleTree = await buildTreeNode({
+        position: viewerPos,
         viewerUser,
-        viewerRootPos,
-        viewerRootAncestors,
-        slot,
+        viewerRootPos: viewerPos,
+        viewerRootAncestors: viewerAncestors,
+        slot
     });
 
+    /* ------------------------------------------------------------  
+       5️⃣ Get REAL parent of this cycle position
+    ------------------------------------------------------------ */
+    let realParent = null;
+
+    if (viewerPos.parentPosition) {
+        const parent = await MatrixPosition.findById(viewerPos.parentPosition);
+        if (parent) {
+            realParent = {
+                userId: parent.userId,
+                positionId: parent._id.toString()
+            };
+        }
+    }
+
+    /* ------------------------------------------------------------  
+       6️⃣ Return final combined output
+    ------------------------------------------------------------ */
     return {
         slotNumber,
         userId,
-        root: tree,
+        cycleIndex,
+        root: cycleTree,
+        realParent: realParent
     };
 }
+
+
+
+
+

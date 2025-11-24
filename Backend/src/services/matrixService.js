@@ -76,7 +76,7 @@ export async function findEntryRootForSlot(user, slot) {
         const sponsorPos = await MatrixPosition.findOne({
             user: sponsor._id,
             slot: slot._id,
-        }).sort({ createdAt: 1 });
+        }).sort({ createdAt: -1 });
 
         if (sponsorPos) {
             // Proper sponsor/upline found → good
@@ -157,9 +157,13 @@ export async function createMatrixPosition(
         status: "ACTIVE",
     });
 
-    if (parentPosition) {
+    // THE FIX 👇
+     if (parentPosition) {
+
         parentPosition.children.push(position._id);
+
         await parentPosition.save();
+
     }
 
     await updateMatrixCountsAndCheckCompletion(position);
@@ -168,47 +172,45 @@ export async function createMatrixPosition(
 }
 
 
+
 /* ------------- update counts (3 levels up) & trigger re-entry ------------- */
 export async function updateMatrixCountsAndCheckCompletion(newPosition) {
-    // console.log("🔄 Updating matrix counts for new position", newPosition._id.toString());
-
     let current = newPosition.parentPosition
         ? await MatrixPosition.findById(newPosition.parentPosition)
         : null;
     let distance = 1;
     const completedPositions = [];
-
-    while (current && distance <= MAX_LEVELS) {
-        // Increment level counts based on distance from child
+    // :fire: FIX — update ALL ancestors (no MAX_LEVELS limit)
+    while (current) {
+        // Level-based depth updates remain same
         if (distance === 1) current.matrixCounts.level1 += 1;
         if (distance === 2) current.matrixCounts.level2 += 1;
         if (distance === 3) current.matrixCounts.level3 += 1;
-
+        // Always increment total
         current.matrixCounts.total += 1;
-
-        // console.log(
-        //   `  ↳ Ancestor userId=${current.userId}, distance=${distance}, total=${current.matrixCounts.total}`
-        // );
-
-        if (!current.matrixCompleted && current.matrixCounts.total >= FULL_MATRIX_TOTAL) {
+        const matirxCount = current.matrixCounts.level1 + current.matrixCounts.level2 + current.matrixCounts.level3;
+        // :fire: Trigger completion when 39 downline filled
+        if (!current.matrixCompleted && matirxCount >= FULL_MATRIX_TOTAL) {
             current.matrixCompleted = true;
             current.status = "COMPLETED";
             completedPositions.push(current);
-            // console.log(`  ✅ Matrix completed for userId=${current.userId} on slot=${current.slotNumber}`);
         }
-
         await current.save();
-
         if (!current.parentPosition) break;
         current = await MatrixPosition.findById(current.parentPosition);
         distance++;
     }
-
-    // Trigger re-entry for each newly completed position
+    // :fire: Create re-entry & ReentryEvent correctly
     for (const pos of completedPositions) {
         await triggerReentryForPosition(pos, newPosition);
     }
 }
+
+
+
+
+
+
 
 
 /* ------------------------------ trigger reentry ---------------------------- */

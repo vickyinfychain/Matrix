@@ -5,8 +5,75 @@ import { toast } from "sonner";
 import { createAppKit } from "@reown/appkit";
 import { bsc } from "@reown/appkit/networks";
 import { wagmiAdapter, projectId } from "../config/index";
-import { useAccount, useDisconnect, useSignMessage } from "wagmi";
-import { apiService } from '../services/api.js'
+import { useAccount, } from "wagmi";
+import axios from "axios";
+
+const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
+
+// Session management utilities
+const sessionManager = {
+  // Check if user is already logged in
+  isLoggedIn: () => {
+    return !!localStorage.getItem("sessionToken");
+  },
+
+  // Get current session data
+  getSession: () => {
+    const sessionToken = localStorage.getItem("sessionToken");
+    const userId = localStorage.getItem("userId");
+    const walletAddress = localStorage.getItem("walletAddress");
+    
+    if (sessionToken && userId && walletAddress) {
+      return {
+        sessionToken,
+        userId: parseInt(userId),
+        walletAddress
+      };
+    }
+    return null;
+  },
+
+  // Create new session
+  createSession: (user: any) => {
+    const sessionToken = `session_${Date.now()}_${user.walletAddress}`;
+    
+    localStorage.setItem("sessionToken", sessionToken);
+    localStorage.setItem("userId", String(user.userId));
+    localStorage.setItem("walletAddress", user.walletAddress);
+    localStorage.setItem("loginTimestamp", Date.now().toString());
+    
+    return sessionToken;
+  },
+
+  // Clear session
+  clearSession: () => {
+    localStorage.removeItem("sessionToken");
+    localStorage.removeItem("userId");
+    localStorage.removeItem("walletAddress");
+    localStorage.removeItem("loginTimestamp");
+    localStorage.removeItem("sponsorId");
+  },
+
+  // Validate session (optional: check if session is still valid)
+  validateSession: () => {
+    const session = sessionManager.getSession();
+    if (!session) return false;
+
+    // Optional: Check if session is expired (e.g., 7 days)
+    const loginTimestamp = localStorage.getItem("loginTimestamp");
+    if (loginTimestamp) {
+      const sessionAge = Date.now() - parseInt(loginTimestamp);
+      const sevenDays = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
+      
+      if (sessionAge > sevenDays) {
+        sessionManager.clearSession();
+        return false;
+      }
+    }
+    
+    return true;
+  }
+};
 
 const BrandMark: React.FC = () => {
   return (
@@ -297,11 +364,52 @@ const initializeAppKit = () => {
   return appKit;
 };
 
+// Axios API functions
+const apiService = {
+  // Get user by wallet address
+  getUserByWallet: async (walletAddress: string) => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/users/by-wallet/${walletAddress}`);
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        throw new Error("User not found");
+      }
+      throw new Error(error.response?.data?.error || "Failed to fetch user");
+    }
+  },
+
+  // Register new user
+  registerUser: async (walletAddress: string, sponsorUserId: number | null = null) => {
+    try {
+      const response = await axios.post(`${API_BASE_URL}/users/register`, {
+        walletAddress,
+        sponsorUserId
+      });
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.error || "Registration failed");
+    }
+  },
+
+  // Get user by ID
+  getUserById: async (userId: number) => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/users/${userId}`);
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        throw new Error("User not found");
+      }
+      throw new Error(error.response?.data?.error || "Failed to fetch user");
+    }
+  }
+};
+
 const AuthPage = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const { isConnected, address } = useAccount();
-  const { disconnect } = useDisconnect();
 
   const [referral, setReferral] = useState("");
   const [searchNumber, setSearchNumber] = useState("");
@@ -310,13 +418,27 @@ const AuthPage = () => {
   const [status, setStatus] = useState<string>("");
   const [mousePosition, setMousePosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [pendingAuth, setPendingAuth] = useState(false);
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
 
   useEffect(() => {
     initializeAppKit();
-    disconnect();
-    localStorage.removeItem("sessionToken");
-    localStorage.removeItem("expiresAt");
-  }, [disconnect]);
+  }, []);
+
+  // Check for existing session on component mount
+  useEffect(() => {
+    const checkExistingSession = () => {
+      if (sessionManager.validateSession()) {
+        const session = sessionManager.getSession();
+        if (session) {
+          toast.success("Welcome back!");
+          navigate("/dashboard");
+        }
+      }
+      setIsCheckingSession(false);
+    };
+
+    checkExistingSession();
+  }, [navigate]);
 
   useEffect(() => {
     if (id) setReferral(id);
@@ -425,18 +547,11 @@ const AuthPage = () => {
 
   const loginUser = async (user: any) => {
     try {
-      const sessionToken = `session_${Date.now()}_${user.walletAddress}`;
-      const expiresAt = Date.now() + (24 * 60 * 60 * 1000);
-      
-      localStorage.setItem("sessionToken", sessionToken);
-      localStorage.setItem("expiresAt", String(expiresAt));
-      localStorage.setItem("userId", String(user.userId));
-      localStorage.setItem("walletAddress", user.walletAddress);
-      
+      sessionManager.createSession(user);
       toast.success("Login successful");
       navigate("/dashboard");
       return true;
-    } catch (err: any) {
+    } catch (err) {
       toast.error("Login failed. Please try again.");
       return false;
     }
@@ -464,6 +579,22 @@ const AuthPage = () => {
       handleSearch();
     }
   };
+
+  // Show loading while checking session
+  if (isCheckingSession) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 via-amber-900 to-orange-900">
+        <div className="text-center">
+          <motion.div
+            className="w-16 h-16 border-4 border-orange-500 border-t-transparent rounded-full mx-auto mb-4"
+            animate={{ rotate: 360 }}
+            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+          />
+          <p className="text-orange-200">Checking session...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 via-amber-900 to-orange-900 text-white p-3 sm:p-4 font-sans overflow-hidden">
