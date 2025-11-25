@@ -802,7 +802,6 @@ const Dashboard = () => {
       }
 
       const matrixData = await dashboardApiService.getMatrixPositions(parseInt(targetUserId));
-      console.log("Matrix API Response:", matrixData);
       
       setMatrixPositions(matrixData.positions || []);
       // Update to use the levelOneUserIdsPerSlot from the backend response

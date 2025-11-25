@@ -42,8 +42,6 @@ router.post("/bulk-register", async (req, res) => {
             return res.status(400).json({ error: "Count is required and must be greater than 0" });
         }
 
-        console.log(`🆕 Bulk registration request: ${count} users starting from ${startFrom}, Sponsor: ${sponsorUserId}`);
-
         // Validate sponsor user exists
         const sponsorUser = await User.findOne({ userId: sponsorUserId });
         if (!sponsorUser) {
@@ -94,8 +92,6 @@ router.post("/bulk-register", async (req, res) => {
                     registeredAt: user.registeredAt
                 });
 
-                console.log(`✅ Registered user ${user.userId} with sponsor ${sponsorUserId}: ${walletAddress}`);
-                
                 // Increment wallet counter for next user
                 walletCounter++;
 

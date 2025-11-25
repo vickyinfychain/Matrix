@@ -219,8 +219,6 @@ export async function triggerReentryForPosition(completedPosition, triggeredByPo
     const slot = await Slot.findById(completedPosition.slot);
     if (!user || !slot) return;
 
-    // console.log(`♻️ Triggering re-entry for userId=${user.userId} slot=${slot.slotNumber}`);
-
     // Find highest existing cycleIndex for this user in this slot
     const lastPos = await MatrixPosition.findOne({
         user: user._id,
@@ -249,9 +247,6 @@ export async function triggerReentryForPosition(completedPosition, triggeredByPo
         triggeredByPosition: triggeredByPosition._id,
     });
 
-    // console.log(
-    //   `   ➕ New re-entry position created for userId=${user.userId} (cycle ${cycleIndexAfter})`
-    // );
 }
 
 

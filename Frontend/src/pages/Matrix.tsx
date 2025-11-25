@@ -502,8 +502,6 @@ export default function MatrixPage() {
   };
 
   const handlePositionClick = (position: MatrixPosition) => {
-    console.log("Clicked position:", position);
-
     const hasValidChildren =
         position.children &&
         Array.isArray(position.children) &&
