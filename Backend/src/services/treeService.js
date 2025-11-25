@@ -10,6 +10,7 @@ async function getMainPositionForUserSlot(user, slot,cycleIndex) {
         slot: slot._id,
         cycleIndex
     }).sort({ createdAt: 1 });
+    console.log(pos)
     return pos; // can be null if user not placed yet in that slot
 }
 

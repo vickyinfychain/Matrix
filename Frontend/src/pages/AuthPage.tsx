@@ -493,40 +493,42 @@ const AuthPage = () => {
   };
 
   const continueAuth = async (wallet: string) => {
-    try {
-      setStatus("Checking account...");
-      
-      const userCheck = await checkUserExist(wallet);
-      
-      localStorage.setItem("walletAddress", wallet);
-      if (referral) {
-        localStorage.setItem("sponsorId", referral);
-      }
+  try {
+    setStatus("Checking account...");
 
-      if (userCheck.exist && userCheck.user) {
-        setStatus("Signing in...");
-        // Real login for the connected wallet user
-        await loginUser(userCheck.user);
-        return;
-      }
+    const userCheck = await checkUserExist(wallet);
 
-      setStatus("Creating your account...");
-      const newUser = await registerUser(wallet);
-      if (!newUser) {
-        setStatus("");
-        return;
-      }
-      
-      setStatus("Account created. Signing in...");
-      await loginUser(newUser);
-    } catch (e) {
-      console.error(e);
-      toast.error("Authentication failed. Try again.");
-    } finally {
-      setStatus("");
-      setPendingAuth(false);
+    localStorage.setItem("walletAddress", wallet);
+    if (referral) {
+      localStorage.setItem("sponsorId", referral);
     }
-  };
+
+    // ✔ If user already exists → LOGIN normally (not view-only)
+    if (userCheck.exist && userCheck.user) {
+      setStatus("Signing in...");
+      await loginUser(userCheck.user);
+      return;
+    }
+
+    // ✔ User does not exist → Register
+    setStatus("Creating your account...");
+    const newUser = await registerUser(wallet);
+    if (!newUser) {
+      setStatus("");
+      return;
+    }
+
+    setStatus("Account created. Signing in...");
+    await loginUser(newUser);
+  } catch (e) {
+    console.error(e);
+    toast.error("Authentication failed. Try again.");
+  } finally {
+    setStatus("");
+    setPendingAuth(false);
+  }
+};
+
 
   const handleConnectRegisterLogin = async () => {
     setStatus("");

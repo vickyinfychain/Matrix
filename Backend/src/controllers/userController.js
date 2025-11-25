@@ -63,6 +63,7 @@ export const getFullUserMatrixData = async (req, res) => {
             ...(walletAddress && { walletAddress }),
             ...(userId && { userId }),
         });
+        console.log(userSlot);
         if (!userSlot) {
             return res.status(404).json({
                 success: false,
@@ -81,6 +82,7 @@ export const getFullUserMatrixData = async (req, res) => {
         const transactions = await DividendPoolRecord.find({
             fromUser: userSlot._id          // <<:fire: FIXED
         });
+        console.log(transactions);
         // Final Response
         return res.json({
             success: true,
@@ -115,6 +117,7 @@ export const getFullUserMatrixData = async (req, res) => {
             },
         });
     } catch (error) {
+        console.log("SERVER ERROR:", error);
         return res.status(500).json({
             success: false,
             message: "Server error",

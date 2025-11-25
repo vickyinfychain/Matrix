@@ -9,6 +9,10 @@ const userSchema = new mongoose.Schema(
         sponsorUserId: { type: Number, index: true, default: null },
 
         directReferrals: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+        totalInvested: { type: Number, default: 0 },   // sum of all slot investments
+        totalEarned: { type: Number, default: 0 },     // sum of all incomes (level + dividend + etc.)
+        roiCap: { type: Number, default: 0 },
+        dividend: { type: Number, default: 0 },
     },
     { timestamps: true }
 );

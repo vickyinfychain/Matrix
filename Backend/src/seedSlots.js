@@ -28,6 +28,7 @@ export default async function seedSlots(req, res) {
         });
 
     } catch (err) {
+        console.log("Seed Error:", err);
         return res.status(500).json({
             status: false,
             error: "Something went wrong while seeding slots"

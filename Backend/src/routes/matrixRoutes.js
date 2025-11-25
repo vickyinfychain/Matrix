@@ -5,6 +5,7 @@ const router = Router();
 
 router.post("/all", async (req, res) => {
     try {
+        console.log("🔍 Fetching matrix positions...");
         
         // Get userId from request body
         const { userId } = req.body;
@@ -13,6 +14,7 @@ router.post("/all", async (req, res) => {
             return res.status(400).json({ error: "User ID is required in request body" });
         }
 
+        console.log(`👤 User ID from request body: ${userId}`);
         
         // Find positions directly by userId if it's stored in MatrixPosition
         const positions = await MatrixPosition.find({ userId: parseInt(userId) })
@@ -20,6 +22,7 @@ router.post("/all", async (req, res) => {
             .populate("slot", "slotNumber priceUSD")
             .lean();
 
+        console.log(positions);
 
         // Get level 1 user IDs for the current user's positions only
         const levelOneUserIdsPerSlot = {};
@@ -44,6 +47,7 @@ router.post("/all", async (req, res) => {
             
             levelOneUserIdsPerSlot[slotNum] = level1UserIds;
             
+            console.log(`📦 Slot ${slotNum} - Level 1 children:`, level1UserIds);
         }
 
         // Calculate matrix counts for the specific user
@@ -78,6 +82,11 @@ router.post("/all", async (req, res) => {
             }
         };
 
+        console.log(`✅ Found ${positions.length} positions for user ${userId}`);
+        console.log(`📊 Matrix Counts:`, matrixCounts);
+        console.log(`🔄 Latest Cycle Index: ${latestCycleIndex}`);
+        console.log(`👥 Level 1 User IDs Per Slot for current user:`, levelOneUserIdsPerSlot);
+        
         res.json(response);
         
     } catch (error) {

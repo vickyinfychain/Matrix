@@ -311,68 +311,100 @@ const LastUsersIndicator: React.FC<{
   );
 };
 
+
 const BuySlotModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
   slotData: any;
   onActivate: () => void;
+  onActivateUsingDividend: () => void;
   isLoading: boolean;
-  isViewMode?: boolean;
-}> = ({ isOpen, onClose, slotData, onActivate, isLoading, isViewMode }) => {
+  userStats: any;
+}> = ({ isOpen, onClose, slotData, onActivate, onActivateUsingDividend, isLoading, userStats }) => {
+
   if (!isOpen || !slotData) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.9 }}
-        className="relative w-full max-w-md bg-gray-900 p-6 rounded-2xl border border-orange-400/40 shadow-2xl"
-      >
-        {/* Title */}
-        <h2 className="text-xl font-bold text-white mb-4">
-          Activate Slot {slotData.id}
-        </h2>
+return (
+  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+    <motion.div
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.9 }}
+      className="relative w-full max-w-md bg-gray-900 p-6 rounded-2xl border border-orange-400/40 shadow-2xl"
+    >
+      {/* Title */}
+      <h2 className="text-xl font-bold text-white mb-4">
+        Activate Slot {slotData.id}
+      </h2>
 
-        {/* Box */}
-        <div className="bg-gray-800 p-4 rounded-xl border border-orange-400/30 mb-4">
-          <p className="text-amber-200">
-            <strong>Slot Number:</strong> #{slotData.id}
-          </p>
-          <p className="text-amber-200">
-            <strong>Cost:</strong> ${slotData.priceUSD} USD
-          </p>
-          <p className="text-amber-200">
-            <strong>ETH:</strong> {slotData.ethCost} ETH
-          </p>
-        </div>
+      {/* Box */}
+      <div className="bg-gray-800 p-4 rounded-xl border border-orange-400/30 mb-4">
+        <p className="text-amber-200">
+          <strong>Slot Number:</strong> #{slotData.id}
+        </p>
+        <p className="text-amber-200">
+          <strong>Cost:</strong> ${slotData.priceUSD} USD
+        </p>
+        <p className="text-amber-200">
+          <strong>ETH:</strong> {slotData.ethCost} ETH
+        </p>
 
-        {/* Info */}
-        <div className="bg-gray-700 p-3 rounded-xl text-amber-100 text-sm mb-4">
-          💡 After activation, click the slot card again to view your matrix
-          structure.
-        </div>
+        {/* Dividend Balance Row */}
+        <p className="text-amber-300 mt-2 text-sm">
+          <strong>Your Dividend:</strong>{" "}
+          ${userStats?.totalDividend?.toFixed(2) || 0}
+        </p>
+      </div>
 
-        {/* Buttons */}
-        <div className="flex items-center justify-between">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 rounded-xl bg-gray-600 text-white"
-          >
-            Cancel
-          </button>
+      {/* Info */}
+      <div className="bg-gray-700 p-3 rounded-xl text-amber-100 text-sm mb-4">
+        💡 After activation, click the slot card again to view your matrix
+        structure.
+      </div>
 
-          <button
-            onClick={onActivate}
-            disabled={isLoading || !!isViewMode}
-            className={`px-4 py-2 rounded-xl ${isLoading || !!isViewMode ? 'bg-gray-500 text-gray-200 cursor-not-allowed' : 'bg-orange-500 text-white font-bold'}`}
-          >
-            {isLoading ? 'Activating...' : (isViewMode ? 'View-only mode' : 'Activate Slot')}
-          </button>
-        </div>
-      </motion.div>
-    </div>
-  );
+      {/* Buttons */}
+      <div className="flex flex-col gap-3 mt-4">
+
+        {/* Normal Activation */}
+        <button
+          onClick={onActivate}
+          disabled={isLoading}
+          className="px-4 py-3 rounded-xl bg-orange-500 text-white font-bold text-center w-full shadow-lg hover:bg-orange-600 transition"
+        >
+          {isLoading ? "Activating..." : "Activate Slot"}
+        </button>
+
+        {/* Dividend Activation */}
+        <button
+          onClick={onActivateUsingDividend}
+          disabled={userStats.totalDividend < slotData.priceUSD || isLoading}
+          className={`px-4 py-3 rounded-xl font-bold text-center w-full shadow-lg transition
+            ${
+              userStats.totalDividend >= slotData.priceUSD
+                ? "bg-yellow-500 text-gray-900 hover:bg-yellow-600"
+                : "bg-gray-600 text-gray-300 cursor-not-allowed"
+            }
+          `}
+        >
+          {userStats.totalDividend >= slotData.priceUSD
+            ? "Activate Using Dividend"
+            : "Not Enough Dividend"}
+        </button>
+
+        {/* Cancel */}
+        <button
+          onClick={onClose}
+          className="px-4 py-2 rounded-xl bg-gray-600 text-white w-full"
+        >
+          Cancel
+        </button>
+
+      </div>
+
+    </motion.div>
+  </div>
+);
+
 };
 
 const EarningsTable: React.FC<{ earnings: any[]; isLoading: boolean }> = ({
@@ -789,7 +821,33 @@ const Dashboard = () => {
       loadEarningsData(targetUserId);
     }
   }, []);
+const onActivateUsingDividend = async () => {
+  try {
+    setIsBooking(true);
 
+    const wallet = localStorage.getItem("walletAddress");
+    if (!wallet) {
+      toast.error("Wallet not found");
+      return;
+    }
+
+    const response = await axios.post(`${API_BASE_URL}/slots/activate-using-dividend`, {
+      walletAddress: wallet,
+      slotNumber: selectedSlot.id,
+    });
+
+    toast.success("Activated using Dividend!");
+
+    setShowSlotModal(false);
+    loadDashboardData(userId);
+    fetchMatrixPositions();
+
+  } catch (error) {
+    toast.error("Failed to activate using dividend");
+  } finally {
+    setIsBooking(false);
+  }
+};
   // Fetch matrix positions for the current user
   const fetchMatrixPositions = async () => {
     try {
@@ -802,6 +860,7 @@ const Dashboard = () => {
       }
 
       const matrixData = await dashboardApiService.getMatrixPositions(parseInt(targetUserId));
+      console.log("Matrix API Response:", matrixData);
       
       setMatrixPositions(matrixData.positions || []);
       // Update to use the levelOneUserIdsPerSlot from the backend response
@@ -883,15 +942,6 @@ const Dashboard = () => {
     // Prevent activations in view-only mode
     if (isViewMode) {
       toast.info("You are viewing another user's account. Slot activation is disabled in view-only mode.");
-      setIsBooking(false);
-      setActivatingSlot(null);
-      return;
-    }
-
-    // Ensure the viewer is operating on their own account
-    const loggedUserId = localStorage.getItem('userId');
-    if (!loggedUserId || String(loggedUserId) !== String(userId)) {
-      toast.error("You can only activate slots on your own account. Please switch back to your account.");
       setIsBooking(false);
       setActivatingSlot(null);
       return;
@@ -1000,6 +1050,8 @@ const Dashboard = () => {
         id: dashboardData.user?.userId?.toString() || userId,
         totalEarnings: dashboardData.stats?.totalEarned || 0,
         totalETH: (dashboardData.stats?.totalEarned / 1894).toFixed(3) || 0,
+              totalDividend: dashboardData.stats.dividendTotal,  // 👈 ADD THIS
+
         currentETHPrice: 1894,
         levels:
           dashboardData.slots?.map((slot: any, index: number) => ({
@@ -1027,7 +1079,7 @@ const Dashboard = () => {
       <SnowFall />
       <MatrixIcons />
 
-      <Header userStats={userStats} walletAddress={walletAddress} isViewMode={isViewMode} />
+      <Header userStats={userStats} walletAddress={walletAddress} />
 
       {/* View-only indicator */}
       {isViewMode && (
@@ -1062,13 +1114,15 @@ const Dashboard = () => {
       )}
 
       <BuySlotModal
-        isOpen={showSlotModal}
-        onClose={() => setShowSlotModal(false)}
-        slotData={selectedSlot}
-        onActivate={handleSlotActivation}
-        isLoading={isBooking}
-        isViewMode={isViewMode}
-      />
+  isOpen={showSlotModal}
+  onClose={() => setShowSlotModal(false)}
+  slotData={selectedSlot}
+  onActivate={handleSlotActivation}
+  onActivateUsingDividend={onActivateUsingDividend}
+  isLoading={isBooking}
+  userStats={userStats}
+/>
+
 
       {loading && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -1178,9 +1232,56 @@ const Dashboard = () => {
                     +12.5%
                   </div>
                 </div>
+
+                 
               </div>
+              
             </div>
           </motion.div>
+          {/* Dividend Earnings Card */}
+<motion.div
+  initial={{ opacity: 0, y: 30 }}
+  animate={{ opacity: 1, y: 0 }}
+  transition={{ duration: 0.5, delay: 0.1 }}
+  className="relative group"
+  style={{
+    transform: `perspective(1000px) rotateX(${mousePosition.y * 2}deg) rotateY(${mousePosition.x * 2}deg)`,
+  }}
+>
+  <div
+    className="relative rounded-3xl p-4 sm:p-6 border border-orange-500/30 shadow-2xl overflow-hidden"
+    style={{
+      background: "linear-gradient(135deg, rgba(30,41,59,0.9), rgba(15,23,42,0.95))"
+    }}
+  >
+    <div className="absolute top-0 right-0 w-24 h-24 sm:w-32 sm:h-32 bg-gradient-to-br from-yellow-500/20 to-transparent rounded-full blur-2xl" />
+
+    <div className="relative">
+      <div className="flex items-center gap-2 mb-2 sm:mb-3">
+        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-yellow-500 to-amber-600 rounded-xl flex items-center justify-center shadow-lg">
+          <svg className="w-4 h-4 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v8m-4-4h8m6 0a10 10 0 11-20 0 10 10 0 0120 0z" />
+          </svg>
+        </div>
+        <div className="text-amber-300/70 text-xs sm:text-sm font-medium">Dividend Earned</div>
+      </div>
+
+      <motion.div
+        className="text-2xl sm:text-4xl font-bold bg-gradient-to-r from-yellow-400 to-white bg-clip-text text-transparent mb-1 sm:mb-2"
+        initial={{ scale: 0.7 }}
+        animate={{ scale: 1 }}
+        transition={{ type: "spring", stiffness: 200, damping: 10 }}
+      >
+        ${userStats.totalDividend?.toFixed(2)}
+      </motion.div>
+
+      <div className="text-yellow-300 text-sm font-semibold">
+        Lifetime Dividend Income
+      </div>
+    </div>
+  </div>
+</motion.div>
+
 
           {/* ETH Price Card */}
           <motion.div

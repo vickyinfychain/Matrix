@@ -502,6 +502,8 @@ export default function MatrixPage() {
   };
 
   const handlePositionClick = (position: MatrixPosition) => {
+    console.log("Clicked position:", position);
+
     const hasValidChildren =
         position.children &&
         Array.isArray(position.children) &&
@@ -695,7 +697,7 @@ export default function MatrixPage() {
 
   return (
     <>
-      <Header userStats={userStats} walletAddress={walletAddress} isViewMode={isViewMode} />
+      <Header userStats={userStats} walletAddress={walletAddress} />
 
       {/* View-only indicator */}
       {isViewMode && (

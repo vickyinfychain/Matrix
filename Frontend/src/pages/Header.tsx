@@ -7,10 +7,9 @@ interface HeaderProps {
     id: string;
   };
   walletAddress: string;
-  isViewMode?: boolean;
 }
 
-const Header: React.FC<HeaderProps> = ({ userStats, walletAddress, isViewMode }) => {
+const Header: React.FC<HeaderProps> = ({ userStats, walletAddress }) => {
   const navigate = useNavigate();
   const { disconnect } = useDisconnect();
 
@@ -62,15 +61,10 @@ const Header: React.FC<HeaderProps> = ({ userStats, walletAddress, isViewMode })
                 <div className="text-xs text-orange-300/70 font-medium">Web3 Platform</div>
               </div>
             </div>
-              <div className="px-3 py-1 sm:px-4 sm:py-2 bg-gray-700/60 border border-orange-500/30 rounded-xl backdrop-blur-sm flex items-center gap-2">
-                <div>
-                  <span className="text-xs text-orange-300/70">User ID</span>
-                  <span className="text-sm font-bold text-orange-200"> {userStats.id}</span>
-                </div>
-                {isViewMode && (
-                  <div className="px-2 py-0.5 rounded-md bg-amber-300 text-gray-900 text-xs font-semibold">VIEW-ONLY</div>
-                )}
-              </div>
+            <div className="px-3 py-1 sm:px-4 sm:py-2 bg-gray-700/60 border border-orange-500/30 rounded-xl backdrop-blur-sm">
+              <span className="text-xs text-orange-300/70">User ID</span>
+              <span className="text-sm font-bold text-orange-200"> {userStats.id}</span>
+            </div>
           </motion.div>
 
           <motion.div
