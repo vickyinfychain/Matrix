@@ -317,7 +317,8 @@ const BuySlotModal: React.FC<{
   slotData: any;
   onActivate: () => void;
   isLoading: boolean;
-}> = ({ isOpen, onClose, slotData, onActivate, isLoading }) => {
+  isViewMode?: boolean;
+}> = ({ isOpen, onClose, slotData, onActivate, isLoading, isViewMode }) => {
   if (!isOpen || !slotData) return null;
 
   return (
@@ -363,10 +364,10 @@ const BuySlotModal: React.FC<{
 
           <button
             onClick={onActivate}
-            disabled={isLoading}
-            className="px-4 py-2 rounded-xl bg-orange-500 text-white font-bold"
+            disabled={isLoading || !!isViewMode}
+            className={`px-4 py-2 rounded-xl ${isLoading || !!isViewMode ? 'bg-gray-500 text-gray-200 cursor-not-allowed' : 'bg-orange-500 text-white font-bold'}`}
           >
-            {isLoading ? "Activating..." : "Activate Slot"}
+            {isLoading ? 'Activating...' : (isViewMode ? 'View-only mode' : 'Activate Slot')}
           </button>
         </div>
       </motion.div>
@@ -773,24 +774,34 @@ const Dashboard = () => {
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, []);
 
+  // Derived flags
+  const myUserId = localStorage.getItem("userId");
+  const viewUserId = localStorage.getItem("viewUserId");
+  const isViewMode = !!viewUserId && viewUserId !== myUserId;
+
   useEffect(() => {
+    const viewUserId = localStorage.getItem("viewUserId");
     const storedUserId = localStorage.getItem("userId");
-    if (storedUserId) {
-      setUserId(storedUserId);
-      loadEarningsData(storedUserId);
+    const targetUserId = viewUserId || storedUserId;
+    const isViewMode = !!viewUserId && viewUserId !== storedUserId;
+    if (targetUserId) {
+      setUserId(targetUserId);
+      loadEarningsData(targetUserId);
     }
   }, []);
 
   // Fetch matrix positions for the current user
   const fetchMatrixPositions = async () => {
     try {
+      const viewUserId = localStorage.getItem("viewUserId");
       const storedUserId = localStorage.getItem("userId");
-      if (!storedUserId) {
-        console.error("No userId found in localStorage");
+      const targetUserId = viewUserId || storedUserId;
+      if (!targetUserId) {
+        console.error("No userId found in localStorage or viewUserId");
         return;
       }
 
-      const matrixData = await dashboardApiService.getMatrixPositions(parseInt(storedUserId));
+      const matrixData = await dashboardApiService.getMatrixPositions(parseInt(targetUserId));
       console.log("Matrix API Response:", matrixData);
       
       setMatrixPositions(matrixData.positions || []);
@@ -805,17 +816,20 @@ const Dashboard = () => {
   useEffect(() => {
     const sessionToken = localStorage.getItem("sessionToken");
     const storedWallet = localStorage.getItem("walletAddress");
+    const viewUserId = localStorage.getItem("viewUserId");
     const storedUserId = localStorage.getItem("userId");
+    const targetUserId = viewUserId || storedUserId;
 
-    if (!sessionToken || !isConnected) {
+    // allow viewing dashboard if either a session token is present (search-based login), wallet is connected, or in view-only mode
+    if (!sessionToken && !isConnected && !viewUserId) {
       navigate("/");
       return;
     }
 
     if (storedWallet) setWalletAddress(storedWallet);
-    if (storedUserId) {
-      setUserId(storedUserId);
-      loadDashboardData(storedUserId);
+    if (targetUserId) {
+      setUserId(targetUserId);
+      loadDashboardData(targetUserId);
     }
 
     loadSlots();
@@ -867,6 +881,22 @@ const Dashboard = () => {
     setIsBooking(true);
     setActivatingSlot(selectedSlot.id);
 
+    // Prevent activations in view-only mode
+    if (isViewMode) {
+      toast.info("You are viewing another user's account. Slot activation is disabled in view-only mode.");
+      setIsBooking(false);
+      setActivatingSlot(null);
+      return;
+    }
+
+    // Ensure the viewer is operating on their own account
+    const loggedUserId = localStorage.getItem('userId');
+    if (!loggedUserId || String(loggedUserId) !== String(userId)) {
+      toast.error("You can only activate slots on your own account. Please switch back to your account.");
+      setIsBooking(false);
+      setActivatingSlot(null);
+      return;
+    }
     try {
       const wallet = localStorage.getItem("walletAddress");
       if (!wallet) {
@@ -998,7 +1028,39 @@ const Dashboard = () => {
       <SnowFall />
       <MatrixIcons />
 
-      <Header userStats={userStats} walletAddress={walletAddress} />
+      <Header userStats={userStats} walletAddress={walletAddress} isViewMode={isViewMode} />
+
+      {/* View-only indicator */}
+      {isViewMode && (
+        <div className="container mx-auto px-3 sm:px-4 py-2 sm:py-3 relative z-10">
+          <div className="flex items-center justify-between bg-amber-900/10 border border-amber-500/20 rounded-xl p-3">
+            <div className="text-amber-200 text-sm">
+              Viewing user ID <span className="font-semibold">#{userId}</span> (view-only)
+            </div>
+            <div>
+              <button
+                onClick={() => {
+                  localStorage.removeItem('viewUserId');
+                  // If we have a logged-in user (my own account), navigate to their dashboard; otherwise go to root
+                  const myId = localStorage.getItem('userId');
+                  if (myId) {
+                    setUserId(myId);
+                    loadDashboardData(myId);
+                    loadEarningsData(myId);
+                    fetchMatrixPositions();
+                    navigate('/dashboard');
+                  } else {
+                    navigate('/');
+                  }
+                }}
+                className="px-3 py-1 rounded-lg bg-amber-500 text-gray-900 font-semibold hover:bg-amber-600"
+              >
+                Return to My Account
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <BuySlotModal
         isOpen={showSlotModal}
@@ -1006,6 +1068,7 @@ const Dashboard = () => {
         slotData={selectedSlot}
         onActivate={handleSlotActivation}
         isLoading={isBooking}
+        isViewMode={isViewMode}
       />
 
       {loading && (
@@ -1278,8 +1341,12 @@ const Dashboard = () => {
                     transition={{ duration: 0.5, delay: index * 0.1 }}
                     onClick={() => {
                       if (lvl.state === "LOCKED") return;
-                      if (lvl.state === "ACTIVE") navigate(`/matrix/${lvl.id}`);
+                      if (lvl.state === "ACTIVE") navigate(`/matrix/${lvl.id}/${userId}`);
                       if (lvl.state === "READY") {
+                        if (isViewMode) {
+                          toast.info("You are viewing a user in view-only mode. You cannot activate slots.");
+                          return;
+                        }
                         setSelectedSlot(lvl);
                         setShowSlotModal(true);
                       }

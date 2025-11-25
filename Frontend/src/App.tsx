@@ -48,6 +48,8 @@ function App() {
           {/* Matrix Routes */}
           <Route path="/matrix" element={<MatrixPage />} />
           <Route path="/matrix/:slotNumber" element={<MatrixPage />} />
+          {/* Support matrix view for slots for a specific userId */}
+          <Route path="/matrix/:slotNumber/:userId" element={<MatrixPage />} />
         </Routes>
       </div>
 

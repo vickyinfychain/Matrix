@@ -41,8 +41,17 @@ const sessionManager = {
     localStorage.setItem("userId", String(user.userId));
     localStorage.setItem("walletAddress", user.walletAddress);
     localStorage.setItem("loginTimestamp", Date.now().toString());
+    // Clear view-only mode when a real session is created
+    localStorage.removeItem("viewUserId");
     
     return sessionToken;
+  },
+
+  // Create view-only session (view another user's account without making changes)
+  createViewSession: (user: any) => {
+    localStorage.setItem("viewUserId", String(user.userId));
+    // Keep existing session token intact (user may have logged in as themselves)
+    return true;
   },
 
   // Clear session
@@ -52,6 +61,8 @@ const sessionManager = {
     localStorage.removeItem("walletAddress");
     localStorage.removeItem("loginTimestamp");
     localStorage.removeItem("sponsorId");
+    // Also clear view-only mode
+    localStorage.removeItem("viewUserId");
   },
 
   // Validate session (optional: check if session is still valid)
@@ -494,6 +505,7 @@ const AuthPage = () => {
 
       if (userCheck.exist && userCheck.user) {
         setStatus("Signing in...");
+        // Real login for the connected wallet user
         await loginUser(userCheck.user);
         return;
       }
@@ -565,8 +577,20 @@ const AuthPage = () => {
     
     setSearching(true);
     try {
-      const user = await apiService.getUserById(Number(searchNumber));
+      const res = await apiService.getUserById(Number(searchNumber));
+      // Support backends that return `user` object inside data
+      const user = (res && res.user) ? res.user : res;
       toast.success(`Found user: ${user.walletAddress}`);
+
+      // If current session user is same as found user, full login; otherwise set view-only
+      const current = sessionManager.getSession();
+      if (current && Number(current.userId) === Number(user.userId)) {
+        await loginUser(user);
+      } else {
+        sessionManager.createViewSession(user);
+        toast.success(`You are now viewing user #${user.userId} (view-only)`);
+        navigate('/dashboard');
+      }
     } catch (error: any) {
       toast.error(error.message || "User not found");
     } finally {

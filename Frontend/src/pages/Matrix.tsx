@@ -314,11 +314,16 @@ export default function MatrixPage() {
   const [cyclesInitialized, setCyclesInitialized] = useState(false);
 
   const navigate = useNavigate();
-  const { slotNumber } = useParams();
+  const { slotNumber, userId: paramUserId } = useParams();
+
+  const viewUserId = paramUserId || localStorage.getItem('viewUserId');
+  const isViewMode = !!localStorage.getItem('viewUserId') && (String(paramUserId || '') !== String(localStorage.getItem('userId')));
 
   useEffect(() => {
     const init = async () => {
-      const storedUserId = localStorage.getItem("userId");
+      // Prefer userId from route param (e.g. /matrix/:slotNumber/:userId) if provided
+      // Next prefer view-only userId (if viewing someone), finally fallback to local storage userId
+      const storedUserId = paramUserId || localStorage.getItem("viewUserId") || localStorage.getItem("userId");
       const storedWallet = localStorage.getItem("walletAddress");
 
       if (!storedUserId) {
@@ -692,7 +697,34 @@ export default function MatrixPage() {
 
   return (
     <>
-      <Header userStats={userStats} walletAddress={walletAddress} />
+      <Header userStats={userStats} walletAddress={walletAddress} isViewMode={isViewMode} />
+
+      {/* View-only indicator */}
+      {isViewMode && (
+        <div className="container mx-auto px-3 sm:px-4 py-2 sm:py-3 relative z-10">
+          <div className="flex items-center justify-between bg-amber-900/10 border border-amber-500/20 rounded-xl p-3">
+            <div className="text-amber-200 text-sm">
+              Viewing user ID <span className="font-semibold">#{viewUserId}</span> (view-only)
+            </div>
+            <div>
+              <button
+                onClick={() => {
+                  localStorage.removeItem('viewUserId');
+                  const myId = localStorage.getItem('userId');
+                  if (myId) {
+                    navigate(`/matrix/${currentSlot}/${myId}`);
+                  } else {
+                    navigate('/dashboard');
+                  }
+                }}
+                className="px-3 py-1 rounded-lg bg-amber-500 text-gray-900 font-semibold hover:bg-amber-600"
+              >
+                Return to My Account
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="min-h-screen w-full bg-gradient-to-br from-gray-900 via-amber-900 to-orange-900 
       text-white font-sans overflow-hidden px-4 sm:px-6 
