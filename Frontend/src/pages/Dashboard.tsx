@@ -816,6 +816,7 @@ const Dashboard = () => {
     const storedUserId = localStorage.getItem("userId");
     const targetUserId = viewUserId || storedUserId;
     const isViewMode = !!viewUserId && viewUserId !== storedUserId;
+    console.log("Dashboard mounted. isViewMode:", isViewMode);
     if (targetUserId) {
       setUserId(targetUserId);
       loadEarningsData(targetUserId);
@@ -835,6 +836,7 @@ const onActivateUsingDividend = async () => {
       walletAddress: wallet,
       slotNumber: selectedSlot.id,
     });
+    console.log("Activate Using Dividend Response:", response.data);
 
     toast.success("Activated using Dividend!");
 
