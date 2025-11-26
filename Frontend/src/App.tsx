@@ -41,6 +41,8 @@ function App() {
         <Routes>
           {/* Public */}
           <Route path="/" element={<AuthPage />} />
+          <Route path="/ref/:id" element={<AuthPage />} />
+
 
           {/* Dashboard */}
           <Route path="/dashboard" element={<Dashboard />} />
