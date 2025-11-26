@@ -886,11 +886,6 @@ const Dashboard = () => {
         toast.error("Wallet not found");
         return;
       }
-
-      const response = await axios.post(`${API_BASE_URL}/slots/activate-using-dividend`, {
-        walletAddress: wallet,
-        slotNumber: selectedSlot.id,
-      });
       
       toast.success("Activated using Dividend!");
       setShowSlotModal(false);
